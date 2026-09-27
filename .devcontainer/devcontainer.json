@@ -17,8 +17,12 @@
       "onAutoForward": "openBrowser"
     }
   },
+  "containerEnv": {
+    "HOST": "0.0.0.0",
+    "PORT": "4173"
+  },
   "postCreateCommand": "npm ci",
-  "postStartCommand": "npm run dev -- --host 0.0.0.0 --port 4173",
+  "postStartCommand": "npm run dev",
   "customizations": {
     "vscode": {
       "extensions": ["esbenp.prettier-vscode"]
