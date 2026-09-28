@@ -30,6 +30,7 @@ export class LocationNavigation {
     this._globeResetPromise = null;
     this._cancelGlobeReset = null;
     this._worldJumpActive = false;
+    this._deviceLocationPending = null;
     this.orbitController = new services.OrbitController(viewer);
     this._orbitIndicator = null;
     this._locationState = createStateChannel(
@@ -130,6 +131,7 @@ export class LocationNavigation {
         search: this._locationSearch,
         searchToggle: this._searchToggle,
         resetButtons: [this._resetGlobeBtn, this._cockpitResetGlobeBtn],
+        locateButton: this._myLocationBtn,
         statusCity: this._locationMiniCity,
         statusPoi: this._locationMiniPoi,
       },
@@ -139,7 +141,87 @@ export class LocationNavigation {
       onPoi: (id, index) => this._onPoiClick(id, index),
       onSearch: (query) => this._locationLookup.run(query),
       onReset: () => this.resetToGlobeView(),
+      onLocate: () => this.flyToDeviceLocation({ origin: 'user' }),
     });
+  }
+
+  /**
+   * Fly to the device's own position under the same deferred authority a typed
+   * search uses: the request stamps a navigation generation up front, and the
+   * flight starts only if nothing newer has claimed the camera meanwhile.
+   * @param {{origin?: 'user'|'startup', timeoutMs?: number, mayFly?: Function, beforeFly?: Function}} [options]
+   * @returns {Promise<object>} Structured outcome for the caller and voice tools.
+   */
+  async flyToDeviceLocation({
+    origin = 'user',
+    timeoutMs,
+    mayFly = null,
+    beforeFly = null,
+  } = {}) {
+    const {
+      readDevicePosition,
+      deviceLocationFraming,
+      describeDeviceLocationError,
+      flyToLandmark,
+    } = this.services;
+    const action = 'fly_to_device_location';
+    if (this._disposed || typeof readDevicePosition !== 'function')
+      return { ok: false, action, cancelled: true };
+    if (this._deviceLocationPending) return this._deviceLocationPending;
+    const authority = this._beginDeferredNavigation('location');
+    if (authority === false) return { ok: false, action, refused: true };
+    const current = () =>
+      !this._disposed && authority === this._navigationGeneration;
+    this._locationControls?.setLocateBusy(true);
+    const run = (async () => {
+      try {
+        const fix = await readDevicePosition({ timeoutMs });
+        if (!current() || (mayFly && mayFly() === false))
+          return { ok: false, action, cancelled: true };
+        if (this._reassertNavigationHandoff(authority) === false)
+          return { ok: false, action, refused: true };
+        if (typeof beforeFly === 'function') beforeFly();
+        const framing = deviceLocationFraming(fix.accuracyM);
+        this._stopOrbit();
+        const result = this._runWorldJumpFlight((hooks) =>
+          flyToLandmark(this.viewer, fix.lat, fix.lon, {
+            range: framing.rangeM,
+            pitch: framing.pitchDeg,
+            heading: 0,
+            buildingHeight: 0,
+            ...hooks,
+          }),
+        );
+        this._searchedLocationLabel = fix.label;
+        this._setActiveLocation(null);
+        this._currentPoi = null;
+        this._collapsePOIRow();
+        if (result) this._currentTarget = result.targetPosition;
+        this._updateLocationMiniStatus();
+        return {
+          ok: true,
+          action,
+          latitude: Number(fix.lat.toFixed(5)),
+          longitude: Number(fix.lon.toFixed(5)),
+          accuracyM: fix.accuracyM,
+          rangeM: framing.rangeM,
+        };
+      } catch (error) {
+        if (!this._disposed && origin === 'user')
+          this._showToast(describeDeviceLocationError(error));
+        return {
+          ok: false,
+          action,
+          error: String(error?.message || error),
+          code: error?.code || 'unavailable',
+        };
+      } finally {
+        this._deviceLocationPending = null;
+        this._locationControls?.setLocateBusy(false);
+      }
+    })();
+    this._deviceLocationPending = run;
+    return run;
   }
 
   _beginWorldJumpTransition() {
@@ -163,19 +245,24 @@ export class LocationNavigation {
   _flyWithTransition(cityChanged, flyAction) {
     return this._runExplicitNavigation('location', () => {
       if (!cityChanged) return flyAction({});
-      let completed = false;
-      const finalize = () => {
-        if (completed || this._disposed) return;
-        completed = true;
-        this._endWorldJumpTransition();
-      };
-      const result = flyAction({
-        onStart: () => this._beginWorldJumpTransition(),
-        onComplete: finalize,
-      });
-      this._trafficTransitionTimer = window.setTimeout(finalize, 5200);
-      return result;
+      return this._runWorldJumpFlight(flyAction);
     });
+  }
+
+  /** Run a long flight inside a world-jump transition with a completion watchdog. */
+  _runWorldJumpFlight(flyAction) {
+    let completed = false;
+    const finalize = () => {
+      if (completed || this._disposed) return;
+      completed = true;
+      this._endWorldJumpTransition();
+    };
+    const result = flyAction({
+      onStart: () => this._beginWorldJumpTransition(),
+      onComplete: finalize,
+    });
+    this._trafficTransitionTimer = window.setTimeout(finalize, 5200);
+    return result;
   }
 
   _onCityPillClick(cityId) {

@@ -53,6 +53,21 @@
   font-size: 18px;
 }
 
+#my-location-view[aria-busy='true'] .material-symbols-outlined {
+  color: var(--accent);
+  animation: my-location-fix 1s ease-in-out infinite;
+}
+
+@keyframes my-location-fix {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 #tilt-map-view[aria-pressed='true'] {
   border-color: var(--accent);
   color: var(--accent);

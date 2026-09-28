@@ -5,10 +5,16 @@ import {
   CITY_POIS,
   GLOBE_VIEW,
   flyToGlobeView,
+  flyToLandmark,
   flyToPresetLocation,
   flyToPOI,
   searchAndFlyTo,
 } from '../locations.js';
+import {
+  describeDeviceLocationError,
+  deviceLocationFraming,
+  readDevicePosition,
+} from '../deviceLocation.js';
 import { interruptCameraMotion } from '../cameraVerbs.js';
 import { IntelHUD } from '../hud.js';
 import { ShareLinkManager } from '../sharelink.js';
@@ -69,9 +75,13 @@ export class StyleManager extends ApplicationShell {
         CITY_POIS,
         GLOBE_VIEW,
         flyToGlobeView,
+        flyToLandmark,
         flyToPresetLocation,
         flyToPOI,
         searchAndFlyTo,
+        readDevicePosition,
+        deviceLocationFraming,
+        describeDeviceLocationError,
         interruptCameraMotion,
         IntelHUD,
         ShareLinkManager,

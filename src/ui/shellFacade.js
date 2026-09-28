@@ -1163,6 +1163,11 @@ export class ShellFacade {
     return this._locationNavigation.setOrbit(...args);
   }
 
+  /** Fly to the device's own position; the startup flight and the toolbar button share it. */
+  flyToDeviceLocation(...args) {
+    return this._locationNavigation.flyToDeviceLocation(...args);
+  }
+
   /**
    * Reads global context mode state for voice/state-sync consumers.
    * @returns {{mode: 'flights'|'space-missions'|null, active: boolean, changing: boolean, entering: 'flights'|'space-missions'|null, snapshotCaptured: boolean}}

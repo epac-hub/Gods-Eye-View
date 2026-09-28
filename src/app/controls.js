@@ -2,6 +2,7 @@ import { catalogControlServices } from './catalog.js';
 import { StyleManager } from '../ui/composition.js';
 import { flyToAustin } from '../camera.js';
 import { initCockpitCloudEffects } from '../cockpitCloudEffects.js';
+import { startAtDeviceLocation } from './startLocation.js';
 
 /** Construct the existing controls and camera presentation. */
 export function createApplicationControls({
@@ -39,10 +40,20 @@ export function createApplicationControls({
   });
   defer(() => cockpitCloudEffects?.destroy());
 
-  // If no share link state, do default fly-to Austin
+  // If no share link state, do default fly-to Austin, then re-aim the opening
+  // flight at the device's own position once the browser reports one.
   if (!styleManager.hasShareState) {
     loaderStatus.textContent = 'Flying to Austin, TX...';
-    defer(flyToAustin(viewer));
+    const cancelStartupFlight = flyToAustin(viewer);
+    defer(cancelStartupFlight);
+    defer(
+      startAtDeviceLocation({
+        shell: styleManager,
+        viewer,
+        cancelStartupFlight,
+        loaderStatus,
+      }),
+    );
   } else {
     loaderStatus.textContent = 'Restoring shared view...';
   }

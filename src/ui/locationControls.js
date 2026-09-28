@@ -11,6 +11,7 @@ export class LocationControls {
     onPoi,
     onSearch,
     onReset,
+    onLocate = null,
     doc = document,
     requestFrame = (callback) => requestAnimationFrame(callback),
     cancelFrame = (id) => cancelAnimationFrame(id),
@@ -23,6 +24,7 @@ export class LocationControls {
       onPoi,
       onSearch,
       onReset,
+      onLocate,
       doc,
       requestFrame,
       cancelFrame,
@@ -64,6 +66,16 @@ export class LocationControls {
     });
     for (const button of elements.resetButtons)
       this.bind(button, 'click', onReset);
+    this.bind(elements.locateButton, 'click', () => {
+      if (typeof this.onLocate === 'function') void this.onLocate();
+    });
+  }
+  /** Reflect an in-flight device fix on the locate button. */
+  setLocateBusy(busy) {
+    const button = this.elements.locateButton;
+    if (this.destroyed || !button) return;
+    button.disabled = !!busy;
+    button.setAttribute?.('aria-busy', busy ? 'true' : 'false');
   }
   bind(element, event, handler, removers = this.removers) {
     if (!element) return;
