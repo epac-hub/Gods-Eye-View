@@ -65,6 +65,7 @@ function fixture() {
     search: node(),
     searchToggle: node(),
     resetButtons: [node(), node()],
+    locateButton: node(),
     statusCity: node(),
     statusPoi: node(),
   };
@@ -87,6 +88,7 @@ function fixture() {
     onPoi: (id, index) => calls.push(['poi', id, index]),
     onSearch: (query) => calls.push(['search', query]),
     onReset: () => calls.push(['reset']),
+    onLocate: () => calls.push(['locate']),
     doc,
     requestFrame: (fn) => {
       const id = next++;
@@ -136,9 +138,31 @@ test('destruction revokes document, search, reset, city and POI actions and remo
   f.elements.search.fire('keydown', { key: 'Enter' });
   f.doc.fire('keydown', { key: 'Q' });
   f.elements.resetButtons[0].fire('click');
+  f.elements.locateButton.fire('click');
+  f.controls.setLocateBusy(true);
   f.frames.get(0)();
   assert.deepEqual(f.calls, []);
   assert.equal(f.doc.body.children.length, 0);
+  assert.notEqual(f.elements.locateButton.disabled, true);
+});
+test('the locate button routes to onLocate and reflects a busy fix', () => {
+  const f = fixture();
+  f.elements.locateButton.setAttribute = function (name, value) {
+    this[name] = value;
+  };
+  f.elements.locateButton.fire('click');
+  assert.deepEqual(f.calls, [['locate']]);
+  f.controls.setLocateBusy(true);
+  assert.equal(f.elements.locateButton.disabled, true);
+  assert.equal(f.elements.locateButton['aria-busy'], 'true');
+  f.controls.setLocateBusy(false);
+  assert.equal(f.elements.locateButton.disabled, false);
+  assert.equal(f.elements.locateButton['aria-busy'], 'false');
+});
+test('a controls instance without a locate button tolerates busy updates', () => {
+  const f = fixture();
+  delete f.elements.locateButton;
+  assert.doesNotThrow(() => f.controls.setLocateBusy(true));
 });
 test('location and POI keys route once while form controls retain typing', () => {
   const f = fixture();
