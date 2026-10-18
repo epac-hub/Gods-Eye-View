@@ -270,6 +270,19 @@ export const ENRICH_AMBIENT_REFILL_WINDOW_MS = 5 * 60 * 1000;
 
 export const ENRICH_AMBIENT_PER_SWEEP = 150;
 
+// Ambient ROUTE enrichment (2026-10-18 field report from a phone: the
+// detection card read "FFT4726 FL306" while the tracked card for the plane
+// next to it read "SJU → EWR" — routes resolved only for the clicked plane,
+// so every other label answered "what is it" but never "where is it going").
+// The same sweep now also asks adsbdb for the routes of the NEAREST on-screen
+// airline-style callsigns, spending the SAME token bucket as the type sweep
+// (one token per request, so the politeness bound is unchanged) and bounded
+// per poll by the constant below. Routes land in the detection card's metric
+// line ("FL306 · SJU → EWR"), gated by routePlausible like the tracked card.
+/** Max new ambient ROUTE enqueues per poll sweep. */
+
+export const ENRICH_AMBIENT_ROUTES_PER_SWEEP = 40;
+
 // ---------------------------------------------------------------------------
 // Tracked-display reconciliation. _deadReckon gives the RAW position from real
 // fixes; at the warm-up→interpolation handoff (and on feed glitches / backfill

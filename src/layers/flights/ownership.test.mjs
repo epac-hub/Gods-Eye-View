@@ -124,3 +124,61 @@ test('a synchronous enrichment failure stays bounded and releases its slot', asy
   await new Promise((done) => setImmediate(done));
   assert.equal(flightState._enrichActive, 0);
 });
+
+test('the ambient sweep asks for routes of airline callsigns on screen, one token each, and skips GA tails', async () => {
+  const Cesium = await import('cesium');
+  const queries = [];
+  const source = {
+    getEnrichment(query) {
+      queries.push(query);
+      return new Promise(() => {}); // never resolves: the queue order is what is under test
+    },
+  };
+  const flightState = createFlightState({ source, services: services() });
+  const here = (altM) => Cesium.Cartesian3.fromDegrees(-97.7, 30.2, altM);
+  flightState._viewer = {
+    camera: {
+      positionWC: here(200_000),
+      directionWC: new Cesium.Cartesian3(0, 0, -1),
+      upWC: new Cesium.Cartesian3(0, 1, 0),
+      frustum: {
+        computeCullingVolume: () => ({
+          computeVisibility: () => Cesium.Intersect.INSIDE,
+        }),
+      },
+    },
+  };
+  flightState._billboardCollection = { show: true };
+  const seed = (icao24, callsign, onGround = false) => {
+    flightState._billboards.set(icao24, { position: here(10_000) });
+    flightState.records.data.set(icao24, { callsign, onGround });
+  };
+  seed('abc123', 'AAL123'); // airline-style: type AND route
+  seed('abc124', 'N123AB'); // GA tail: type only, a route lookup would never resolve
+  seed('abc125', 'UAL2219', true); // on the ground: never spends ambient budget
+  const enrichment = createEnrichment({ flightState, services: {}, parts: {} });
+  const budgetBefore = flightState._enrichAmbientBudget;
+  enrichment._sweepAmbientEnrichment();
+  await new Promise((done) => setImmediate(done));
+  const keys = [...flightState._enrichSeen];
+  assert.ok(keys.includes('t:abc123'));
+  assert.ok(keys.includes('t:abc124'));
+  assert.ok(
+    keys.includes('r:AAL123'),
+    'the airline callsign gets a route lookup',
+  );
+  assert.ok(
+    !keys.some((key) => key.startsWith('r:N123AB')),
+    'GA tails get none',
+  );
+  assert.ok(
+    !keys.includes('t:abc125') && !keys.includes('r:UAL2219'),
+    'ground traffic spends nothing',
+  );
+  // One token per request, routes included: two types + one route.
+  assert.equal(budgetBefore - flightState._enrichAmbientBudget, 3);
+  // A second sweep asks nothing new: every key is already seen this session.
+  enrichment._sweepAmbientEnrichment();
+  assert.equal(budgetBefore - flightState._enrichAmbientBudget, 3);
+  flightState.lifetime.abort();
+});
