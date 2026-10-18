@@ -1,6 +1,7 @@
 import { initFirstRunExperience } from '../firstRunExperience.js';
 import { initSimpleBar } from '../ui/simpleBar.js';
 import { isSimpleUiActive } from '../uiMode.js';
+import { startSimpleDefaults } from './simpleDefaults.js';
 
 /** Reveal welcome controls only after restoration and the loading transition. */
 export function startApplicationChrome({
@@ -12,6 +13,7 @@ export function startApplicationChrome({
   initializeSettings,
   initializeSimpleBar = initSimpleBar,
   simpleUiActive = isSimpleUiActive,
+  applySimpleDefaults = startSimpleDefaults,
 }) {
   let disposed = false;
   let firstRun;
@@ -20,6 +22,16 @@ export function startApplicationChrome({
   // The simple view's action bar is plain chrome: it needs no restoration
   // and no reveal choreography, so it binds at once.
   const simpleBar = initializeSimpleBar?.({ styleManager, dataManager });
+  // The simple view hides the mission launcher, so a first open there would
+  // show an empty globe. Its default live layers go on as soon as layer-state
+  // restoration has settled (the helper waits for that itself).
+  if (simpleUiActive?.())
+    void applySimpleDefaults?.({
+      styleManager,
+      dataManager,
+      simpleUiActive,
+      signal,
+    });
   const minimumDelay = new Promise((resolve) => {
     resolveDelay = resolve;
   });

@@ -17,6 +17,7 @@ function fixture({ simpleActive = false } = {}) {
   let restored;
   let nextTimer = 0;
   let simpleBarDestroyed = false;
+  let defaultsInput = null;
   const controller = new AbortController();
   const context = {
     console,
@@ -42,6 +43,11 @@ function fixture({ simpleActive = false } = {}) {
       };
     },
     isSimpleUiActive: () => simpleActive,
+    startSimpleDefaults(input) {
+      events.push('defaults');
+      defaultsInput = input;
+      return Promise.resolve({ applied: true });
+    },
     async initKeySetup() {
       return { destroy: () => events.push('settings:destroy') };
     },
@@ -70,6 +76,7 @@ function fixture({ simpleActive = false } = {}) {
     restored,
     controller,
     simpleBarDestroyed: () => simpleBarDestroyed,
+    defaultsInput: () => defaultsInput,
     fire(delay) {
       for (const [id, task] of timers) {
         if (task.delay === delay) {
@@ -144,9 +151,25 @@ test('the simple view keeps the mission launcher out of the way and owns the bar
   await flush();
   f.listeners.get('transitionend')();
   f.fire(900);
-  assert.deepEqual(f.events, ['hidden']);
+  assert.deepEqual(f.events, ['defaults', 'hidden']);
   assert.equal(f.simpleBarDestroyed(), false);
   await f.stop();
   assert.equal(f.simpleBarDestroyed(), true);
-  assert.deepEqual(f.events, ['hidden', 'settings:destroy']);
+  assert.deepEqual(f.events, ['defaults', 'hidden', 'settings:destroy']);
+});
+
+test('the simple view turns its default layers on at startup; the full console never does', async () => {
+  const simple = fixture({ simpleActive: true });
+  assert.deepEqual(simple.events, ['defaults']);
+  assert.equal(typeof simple.defaultsInput().simpleUiActive, 'function');
+  assert.ok(simple.defaultsInput().signal instanceof AbortSignal);
+  await simple.stop();
+
+  const full = fixture({ simpleActive: false });
+  assert.deepEqual(full.events, []);
+  full.fire(1000);
+  full.restored({ status: 'not-requested' });
+  await flush();
+  assert.ok(!full.events.includes('defaults'));
+  await full.stop();
 });
