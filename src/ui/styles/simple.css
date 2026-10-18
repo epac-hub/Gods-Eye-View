@@ -317,6 +317,32 @@ body.ui-clean-view #simple-layers {
   cursor: wait;
 }
 
+/* ── Touch devices ──────────────────────────────────────────────────── */
+/* The page is an app surface, not a document: no rubber-band scrolling
+   behind the globe, no page zoom on a double tap, and the globe's own
+   gestures (pan, pinch, two-finger tilt) reach Cesium untouched. */
+html,
+body {
+  overscroll-behavior: none;
+}
+
+#cesiumContainer,
+#cesiumContainer canvas {
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.simple-actions button,
+.simple-layer-toggle,
+.simple-sheet-header button,
+.simple-search-go {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* ── Phones ─────────────────────────────────────────────────────────── */
 @media (max-width: 720px) {
   /* The circular scope mask eats a phone's corners; the simple view shows
@@ -325,8 +351,16 @@ body.ui-clean-view #simple-layers {
     display: none;
   }
 
+  /* Keep the title clear of the notch in either orientation. */
+  body.ui-simple #title-bar {
+    top: max(14px, env(safe-area-inset-top));
+    left: max(16px, env(safe-area-inset-left));
+  }
+
   #simple-bar {
-    width: calc(100vw - 16px);
+    width: calc(
+      100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right)
+    );
     bottom: max(10px, env(safe-area-inset-bottom));
   }
 
@@ -335,10 +369,23 @@ body.ui-clean-view #simple-layers {
   }
 
   #simple-layers {
-    width: calc(100vw - 16px);
+    width: calc(
+      100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right)
+    );
     bottom: calc(max(10px, env(safe-area-inset-bottom)) + 92px);
     max-height: min(58vh, 480px);
     max-height: min(58dvh, 480px);
+  }
+}
+
+/* Short landscape phones: the sheet must leave room for the bar. */
+@media (max-width: 960px) and (max-height: 500px) {
+  #simple-layers {
+    max-height: calc(100dvh - 120px);
+  }
+
+  .simple-actions button {
+    min-height: 48px;
   }
 }
 
