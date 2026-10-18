@@ -1217,6 +1217,7 @@
       "src/app/catalog.js",
       "src/app/constructCatalog.js",
       "src/app/controls.js",
+      "src/app/simpleDefaults.js",
       "src/app/startLocation.js",
       "src/deviceLocation.js",
       "src/uiMode.js",
