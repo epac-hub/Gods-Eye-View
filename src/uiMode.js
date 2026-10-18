@@ -11,7 +11,34 @@
  * Resolution order on load: an explicit `?ui=simple|full` query wins, a share
  * link (camera in the URL hash) opens the full console its author configured,
  * then the visitor's stored choice, and finally the simple view.
+ *
+ * Phones are the exception: the full console is a desktop surface, and on a
+ * phone-sized screen its panels stack over the globe and over each other until
+ * nothing can be tapped. So on a phone the simple view is the only view: a
+ * stored "full" and a share link both open the simple view there, and the bar
+ * does not offer the switch. Only an explicit `?ui=full` still forces it, so
+ * support can inspect the console on a handset.
  */
+
+/**
+ * The one definition of "phone" the mode policy and the stylesheet share:
+ * a narrow screen, or a short landscape screen driven by touch.
+ * src/ui/styles/simple.css repeats this list verbatim (pinned by a test).
+ */
+export const PHONE_MEDIA_QUERY =
+  '(max-width: 720px), (pointer: coarse) and (max-height: 500px)';
+
+/**
+ * @param {{matchMedia?: Function}|null|undefined} [windowRef]
+ * @returns {boolean}
+ */
+export function isPhoneViewport(windowRef = globalThis.window) {
+  try {
+    return Boolean(windowRef?.matchMedia?.(PHONE_MEDIA_QUERY)?.matches);
+  } catch {
+    return false;
+  }
+}
 
 /** Durable preference. Written only when the visitor switches mode. */
 export const UI_MODE_STORAGE_KEY = 'gev:ui-mode:v1';
@@ -53,13 +80,20 @@ export function hasShareLinkHash(hash) {
  * @param {unknown} [input.stored] The persisted preference, if any.
  * @param {string} [input.search] `location.search`.
  * @param {string} [input.hash] `location.hash`.
+ * @param {boolean} [input.phone] Phone-sized screen (see PHONE_MEDIA_QUERY).
  * @returns {'simple'|'full'}
  */
-export function resolveInitialUiMode({ stored, search = '', hash = '' } = {}) {
+export function resolveInitialUiMode({
+  stored,
+  search = '',
+  hash = '',
+  phone = false,
+} = {}) {
   const forced = normalizeUiMode(
     new URLSearchParams(String(search).replace(/^\?/, '')).get('ui'),
   );
   if (forced) return forced;
+  if (phone) return UI_MODE_SIMPLE;
   if (hasShareLinkHash(hash)) return UI_MODE_FULL;
   return normalizeUiMode(stored) || UI_MODE_SIMPLE;
 }

@@ -27,6 +27,38 @@ export const FIRST_RUN_STORAGE_KEY = 'gev:first-run-mission:v1';
 export const FIRST_RUN_SESSION_KEY = 'gev:first-run-mission-session:v1';
 
 /**
+ * How long a mission may hold the card open before the card gets out of the
+ * way. Live Contacts and Space Missions settle only once their entry layer has
+ * really loaded, which on a phone connection can take tens of seconds or never
+ * finish at all — and a card that reads "Starting live contacts…" for that long
+ * is, to the visitor, a card that does nothing. The mission keeps running in
+ * the background and the layer rows report its state; the card only needs to
+ * stay long enough to show a FAST failure in place.
+ */
+export const FIRST_RUN_LAUNCH_GRACE_MS = 1500;
+
+/**
+ * Wait for a mission for at most `graceMs`.
+ * @template T
+ * @param {Promise<T>} promise
+ * @param {number} graceMs
+ * @param {{setTimeout?: Function, clearTimeout?: Function}} [timers]
+ * @returns {Promise<{settled: true, outcome: T}|{settled: false}>}
+ */
+export function settleWithinGrace(promise, graceMs, timers = globalThis) {
+  const setTimer = timers?.setTimeout ?? setTimeout;
+  const clearTimer = timers?.clearTimeout ?? clearTimeout;
+  let timer = null;
+  const expiry = new Promise((resolve) => {
+    timer = setTimer(() => resolve({ settled: false }), Math.max(0, graceMs));
+  });
+  return Promise.race([
+    Promise.resolve(promise).then((outcome) => ({ settled: true, outcome })),
+    expiry,
+  ]).finally(() => clearTimer(timer));
+}
+
+/**
  * Owner-selectable name for the fires/quakes mission. Flip this ONE constant to
  * re-label the tile; the alternates are pre-written so the choice is a taste
  * call at review time, not an edit.
@@ -325,6 +357,7 @@ export function exclusiveSurfaceActive(documentRef = globalThis.document) {
  * @param {Storage} [input.storage]
  * @param {Storage} [input.sessionStorageRef]
  * @param {Location} [input.location]
+ * @param {number} [input.launchGraceMs] See FIRST_RUN_LAUNCH_GRACE_MS.
  * @returns {null|{dismiss: Function}}
  */
 export function initFirstRunExperience({
@@ -334,6 +367,7 @@ export function initFirstRunExperience({
   storage,
   sessionStorageRef,
   location = globalThis.location,
+  launchGraceMs = FIRST_RUN_LAUNCH_GRACE_MS,
 } = {}) {
   const root = documentRef?.getElementById?.('first-run-launcher');
   if (!root || root.dataset.initialized === 'true') return null;
@@ -453,7 +487,7 @@ export function initFirstRunExperience({
     setBusy(true, choice);
     let outcome = null;
     try {
-      outcome = await runFirstRunChoice(choice, {
+      const mission = runFirstRunChoice(choice, {
         setContextMode: async (mode) => {
           const result = await styleManager.setContextMode(mode);
           if (result?.ok) {
@@ -473,6 +507,23 @@ export function initFirstRunExperience({
           dataManager.setEnabled(layerId, true, { origin: 'user' }),
         flyToGlobe: () => styleManager.resetToGlobeView(),
       });
+      const raced = await settleWithinGrace(mission, launchGraceMs);
+      if (!raced.settled) {
+        // The mission is under way but its feeds are still loading. Get the
+        // card out of the visitor's way now; the layer rows carry the live
+        // state from here, and a late failure is still worth a console line.
+        mission
+          .then((late) => {
+            if (!late?.ok)
+              console.warn('[First run] Mission did not complete:', late);
+          })
+          .catch((error) =>
+            console.warn('[First run] Mission launch failed:', error),
+          );
+        if (!closing) dismiss();
+        return;
+      }
+      outcome = raced.outcome;
     } catch (error) {
       // A thrown mission is a real defect worth seeing in a bug report; the
       // ordinary "could not enable" path returns ok:false and stays quiet.

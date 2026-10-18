@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import fs from 'node:fs';
 import {
+  PHONE_MEDIA_QUERY,
   UI_MODE_FULL,
   UI_MODE_SIMPLE,
   UI_MODE_STORAGE_KEY,
@@ -8,6 +10,7 @@ import {
   applyUiMode,
   currentUiMode,
   hasShareLinkHash,
+  isPhoneViewport,
   isSimpleUiActive,
   normalizeUiMode,
   readStoredUiMode,
@@ -113,4 +116,66 @@ test('applyUiMode drives the body class and reports the current mode', () => {
   assert.equal(applyUiMode(doc, 'what'), UI_MODE_SIMPLE);
   assert.doesNotThrow(() => applyUiMode(null, 'simple'));
   assert.equal(currentUiMode(null), UI_MODE_FULL);
+});
+
+test('a phone opens the simple view whatever is stored or shared; only ?ui=full forces the console', () => {
+  assert.equal(
+    resolveInitialUiMode({ phone: true, stored: 'full' }),
+    UI_MODE_SIMPLE,
+  );
+  assert.equal(
+    resolveInitialUiMode({ phone: true, hash: '#lat=18.4&lon=-66.1' }),
+    UI_MODE_SIMPLE,
+  );
+  assert.equal(
+    resolveInitialUiMode({ phone: true, stored: 'full', search: '?ui=full' }),
+    UI_MODE_FULL,
+  );
+  // Not a phone: the stored choice still wins as before.
+  assert.equal(
+    resolveInitialUiMode({ phone: false, stored: 'full' }),
+    UI_MODE_FULL,
+  );
+});
+
+test('isPhoneViewport asks the one shared media query and fails closed', () => {
+  const asked = [];
+  const phone = {
+    matchMedia(query) {
+      asked.push(query);
+      return { matches: true };
+    },
+  };
+  assert.equal(isPhoneViewport(phone), true);
+  assert.deepEqual(asked, [PHONE_MEDIA_QUERY]);
+  assert.equal(
+    isPhoneViewport({ matchMedia: () => ({ matches: false }) }),
+    false,
+  );
+  assert.equal(isPhoneViewport({}), false);
+  assert.equal(isPhoneViewport(undefined), false);
+  assert.equal(
+    isPhoneViewport({
+      matchMedia() {
+        throw new Error('unsupported');
+      },
+    }),
+    false,
+  );
+});
+
+test('the stylesheet hides the Full view switch under the SAME phone media list', () => {
+  const css = fs.readFileSync(
+    new URL('./ui/styles/simple.css', import.meta.url),
+    'utf8',
+  );
+  const start = css.indexOf(`@media ${PHONE_MEDIA_QUERY} {`);
+  assert.notEqual(
+    start,
+    -1,
+    'simple.css must repeat PHONE_MEDIA_QUERY verbatim',
+  );
+  const block = css.slice(start, css.indexOf('\n}\n', start));
+  assert.match(block, /\[data-simple-action='full'\]\s*\{\s*display:\s*none;/);
+  assert.match(block, /grid-template-columns:\s*repeat\(4, 1fr\)/);
 });

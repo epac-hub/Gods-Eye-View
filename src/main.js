@@ -2,6 +2,7 @@ import { createStandaloneApplication } from './standalone/application.js';
 import { describeError } from './standalone/errors.js';
 import {
   applyUiMode,
+  isPhoneViewport,
   readStoredUiMode,
   resolveInitialUiMode,
 } from './uiMode.js';
@@ -14,6 +15,7 @@ applyUiMode(
     stored: readStoredUiMode(),
     search: window.location.search,
     hash: window.location.hash,
+    phone: isPhoneViewport(window),
   }),
 );
 
