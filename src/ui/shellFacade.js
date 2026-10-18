@@ -1168,6 +1168,11 @@ export class ShellFacade {
     return this._locationNavigation.flyToDeviceLocation(...args);
   }
 
+  /** Run a free-text place lookup through the location bar's own search. */
+  searchLocation(query) {
+    return this._locationNavigation._locationLookup?.run(query);
+  }
+
   /**
    * Reads global context mode state for voice/state-sync consumers.
    * @returns {{mode: 'flights'|'space-missions'|null, active: boolean, changing: boolean, entering: 'flights'|'space-missions'|null, snapshotCaptured: boolean}}

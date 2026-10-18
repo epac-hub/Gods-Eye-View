@@ -1,5 +1,21 @@
 import { createStandaloneApplication } from './standalone/application.js';
 import { describeError } from './standalone/errors.js';
+import {
+  applyUiMode,
+  readStoredUiMode,
+  resolveInitialUiMode,
+} from './uiMode.js';
+
+// Decide the interface mode before anything paints so the full console never
+// flashes in front of a visitor who is about to get the simple view.
+applyUiMode(
+  document,
+  resolveInitialUiMode({
+    stored: readStoredUiMode(),
+    search: window.location.search,
+    hash: window.location.hash,
+  }),
+);
 
 const application = createStandaloneApplication({
   googleApiKey: import.meta.env.GOOGLE_MAPS_API_KEY,
