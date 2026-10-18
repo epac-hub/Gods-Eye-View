@@ -147,16 +147,18 @@ export function resolveTier(obj) {
  * @param {string} primary - Bright first line (id/callsign).
  * @param {string} secondary - Dim second line (class · metric); '' collapses to one line.
  * @param {number} charWidth - Monospace glyph advance, px.
+ * @param {number} [scale=1] - Touch typography scale; pads and line heights follow it (text widths follow charWidth).
  * @returns {{w: number, h: number, idBase: number, subBase: number, textX: number, hasSec: boolean}}
  */
-export function measureLabelCard(primary, secondary, charWidth) {
-  const padX = 6;
-  const padY = 4;
-  const lineH = 11;
-  const ASC = 8; // cap height above the first baseline
-  const DESC = 3; // descender depth below the last baseline
-  const accentW = 3; // left accent bar width
-  const accentGap = 4; // gap between accent bar and text (doubles as left pad)
+export function measureLabelCard(primary, secondary, charWidth, scale = 1) {
+  const k = Number.isFinite(scale) && scale > 0 ? scale : 1;
+  const padX = 6 * k;
+  const padY = 4 * k;
+  const lineH = 11 * k;
+  const ASC = 8 * k; // cap height above the first baseline
+  const DESC = 3 * k; // descender depth below the last baseline
+  const accentW = 3 * k; // left accent bar width
+  const accentGap = 4 * k; // gap between accent bar and text (doubles as left pad)
   const hasSec = !!(secondary && secondary.length);
   const wId = monoTextWidth(primary, charWidth);
   const wSub = hasSec ? monoTextWidth(secondary, charWidth) : 0;
@@ -178,16 +180,18 @@ export function measureLabelCard(primary, secondary, charWidth) {
  * @param {string} primary - Callsign / id (bright).
  * @param {string} micro - Short metric, e.g. flight level digits or '14kn' ('' = none).
  * @param {number} charWidth - Monospace glyph advance for the primary text, px.
+ * @param {number} [scale=1] - Touch typography scale; pads and gaps follow it (text widths follow charWidth).
  * @returns {{w: number, h: number, baseline: number, primaryX: number, microX: number, hasMicro: boolean}}
  */
-export function measureTrackLabel(primary, micro, charWidth) {
-  const padX = 6;
-  const padY = 4;
-  const ASC = 8;
-  const DESC = 3;
-  const tickW = 3; // affiliation/tier tick at the left
-  const tickGap = 4;
-  const microGap = 6; // space between callsign and the micro-field
+export function measureTrackLabel(primary, micro, charWidth, scale = 1) {
+  const k = Number.isFinite(scale) && scale > 0 ? scale : 1;
+  const padX = 6 * k;
+  const padY = 4 * k;
+  const ASC = 8 * k;
+  const DESC = 3 * k;
+  const tickW = 3 * k; // affiliation/tier tick at the left
+  const tickGap = 4 * k;
+  const microGap = 6 * k; // space between callsign and the micro-field
   const MICRO_SCALE = 0.9; // micro renders slightly smaller than the callsign
   const hasMicro = !!(micro && micro.length);
   const wPrimary = monoTextWidth(primary, charWidth);

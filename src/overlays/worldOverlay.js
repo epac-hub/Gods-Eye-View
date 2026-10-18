@@ -15,7 +15,10 @@ import {
   paintOverlayEntry,
   placementVariants,
 } from './worldOverlayDraw.js';
-import { WORLD_OVERLAY_STYLE } from './worldOverlayTokens.js';
+import { WORLD_OVERLAY_STYLE, overlayTypeScale } from './worldOverlayTokens.js';
+
+/** Touch typography factor (1 on a desktop); see TOUCH_TYPE_SCALE. */
+const TYPE_SCALE = overlayTypeScale();
 
 /**
  * @module worldOverlay
@@ -1931,9 +1934,11 @@ function snapshotAndProject(entry, source, viewProjection, keyhole) {
         : 0
       : distanceFade(distance, record.distanceOptions);
   const cameraAltitude = _viewer.camera.positionCartographic?.height;
-  record.paintScale = entry.distanceScale
-    ? distanceScale(distance, entry.distanceScale)
-    : 1;
+  // Touch typography rides the per-record paint scale, so every card,
+  // label and leader the host paints grows together on a phone.
+  record.paintScale =
+    (entry.distanceScale ? distanceScale(distance, entry.distanceScale) : 1) *
+    TYPE_SCALE;
   // Keep the source-configurable piecewise curve local to the projection hot
   // path. Passing its five doubles through a non-inlined helper boxed them for
   // every thumbnail candidate and broke the shared 154 B/candidate gate.

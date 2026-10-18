@@ -45,6 +45,48 @@ export const CCTV_THUMBNAIL_STYLE = Object.freeze({
   radius: 4,
 });
 
+/**
+ * Touch-screen typography. The overlay fonts above are sized for a desktop
+ * monitor read at arm's length; on a phone held in the hand the same 10 px
+ * callout is a smudge (owner field report, 2026-10-18: "sí sale pero se ve
+ * muy pequeño"). Coarse-pointer devices scale every overlay card, callout and
+ * font by this factor. It is ONE factor applied at the two paint seams — the
+ * host's per-record paint scale and the detection lane's fonts and card
+ * geometry — so nothing is scaled twice and the desktop stays pixel-identical.
+ */
+export const TOUCH_TYPE_SCALE = 1.35;
+
+/**
+ * @param {{matchMedia?: Function}|null|undefined} [windowRef]
+ * @returns {number} TOUCH_TYPE_SCALE on a coarse-pointer device, else 1.
+ */
+export function overlayTypeScale(windowRef = globalThis.window) {
+  try {
+    return windowRef?.matchMedia?.('(pointer: coarse)')?.matches
+      ? TOUCH_TYPE_SCALE
+      : 1;
+  } catch {
+    return 1;
+  }
+}
+
+/**
+ * Scale the pixel size inside a CSS font shorthand, keeping weight and family.
+ * Sizes land on half pixels so the browser's glyph cache is not thrashed by
+ * fractional sizes. A font without a px size is returned unchanged.
+ * @param {string} font e.g. '600 12px "JetBrains Mono", monospace'
+ * @param {number} scale
+ * @returns {string}
+ */
+export function scaleFontPx(font, scale) {
+  const text = String(font || '');
+  if (!(Number.isFinite(scale) && scale > 0) || scale === 1) return text;
+  return text.replace(/(\d+(?:\.\d+)?)px/, (_, px) => {
+    const size = Math.round(parseFloat(px) * scale * 2) / 2;
+    return `${size}px`;
+  });
+}
+
 /** Detection fonts and compositor glow retained exactly from the source renderer. */
 export const DETECTION_STYLE = Object.freeze({
   font: '10px JetBrains Mono, monospace',

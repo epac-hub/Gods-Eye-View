@@ -26,6 +26,8 @@ import {
   DETECTION_STYLE,
   DETECTION_THEME_MAP,
   SKY_PLATE_SCALE,
+  overlayTypeScale,
+  scaleFontPx,
 } from '../overlays/worldOverlayTokens.js';
 import { skyBackdropFactor } from './iconOrientation.js';
 import { paintDetectionCallout } from '../overlays/worldOverlayDraw.js';
@@ -110,10 +112,12 @@ const LAYER_WEIGHTS = Object.freeze({
   'ais-live-vessels': 1,
 });
 
+/** Touch typography factor (1 on a desktop): fonts AND card geometry follow it. */
+const TYPE_SCALE = overlayTypeScale();
 /** @constant {string} FONT - Monospace font used for callsign/overlay text. */
-const FONT = DETECTION_STYLE.font;
+const FONT = scaleFontPx(DETECTION_STYLE.font, TYPE_SCALE);
 /** @constant {string} MICRO_FONT - Slightly smaller font for the dim altitude micro-field. */
-const MICRO_FONT = DETECTION_STYLE.microFont;
+const MICRO_FONT = scaleFontPx(DETECTION_STYLE.microFont, TYPE_SCALE);
 /** Billboard scale-by-distance curve (mirrors the flight billboards' NearFarScalar) — grows the AIR reticle with the plane as you zoom in. */
 const BILL_NEAR = 1000;
 const BILL_NEAR_SCALE = 3.0;
@@ -1107,7 +1111,7 @@ function _materializeCandidate(
 ) {
   const primary = obj._candidatePrimary;
   const micro = obj._candidateMicro;
-  const card = measureTrackLabel(primary, micro, _charWidth);
+  const card = measureTrackLabel(primary, micro, _charWidth, TYPE_SCALE);
   const placements = _buildLabelPlacements(
     obj._candidateScreenX,
     obj._candidateScreenY,
