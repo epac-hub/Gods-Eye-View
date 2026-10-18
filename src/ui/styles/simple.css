@@ -378,6 +378,21 @@ body {
   }
 }
 
+/* Phones never get the full console: its panels stack over the globe and over
+   each other until nothing can be tapped. The bar drops the switch and the
+   remaining four actions share the row. This media list mirrors
+   PHONE_MEDIA_QUERY in src/uiMode.js, which applies the same rule to the mode
+   itself (a stored "full" or a share link still opens the simple view). */
+@media (max-width: 720px), (pointer: coarse) and (max-height: 500px) {
+  .simple-actions {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .simple-actions [data-simple-action='full'] {
+    display: none;
+  }
+}
+
 /* Short landscape phones: the sheet must leave room for the bar. */
 @media (max-width: 960px) and (max-height: 500px) {
   #simple-layers {
