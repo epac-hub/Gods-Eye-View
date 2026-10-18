@@ -1,0 +1,41 @@
+  <!-- Simple view: the globe plus one labelled action bar. Everything else the
+       full console offers stays available behind "Full view". -->
+  <nav id="simple-bar" aria-label="Main actions">
+    <form id="simple-search-form" class="simple-search" role="search" hidden>
+      <span class="material-symbols-outlined" aria-hidden="true">search</span>
+      <input id="simple-search-input" type="search" placeholder="Search a place, city or address" autocomplete="off" spellcheck="false" aria-label="Search a place" />
+      <button type="submit" class="simple-search-go">Go</button>
+    </form>
+    <div class="simple-actions">
+      <button type="button" data-simple-action="search" aria-expanded="false" aria-controls="simple-search-form">
+        <span class="material-symbols-outlined" aria-hidden="true">search</span>
+        <span class="simple-label">Search</span>
+      </button>
+      <button type="button" data-simple-action="layers" aria-expanded="false" aria-controls="simple-layers">
+        <span class="material-symbols-outlined" aria-hidden="true">layers</span>
+        <span class="simple-label">Layers</span>
+      </button>
+      <button type="button" data-simple-action="locate" class="simple-primary" aria-busy="false">
+        <span class="material-symbols-outlined" aria-hidden="true">my_location</span>
+        <span class="simple-label">My location</span>
+      </button>
+      <button type="button" data-simple-action="globe">
+        <span class="material-symbols-outlined" aria-hidden="true">public</span>
+        <span class="simple-label">Globe</span>
+      </button>
+      <button type="button" data-simple-action="full">
+        <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+        <span class="simple-label">Full view</span>
+      </button>
+    </div>
+  </nav>
+  <section id="simple-layers" class="simple-sheet" role="dialog" aria-labelledby="simple-layers-title" hidden>
+    <header class="simple-sheet-header">
+      <h2 id="simple-layers-title">What to show</h2>
+      <button type="button" data-simple-action="close-layers" aria-label="Close">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+      </button>
+    </header>
+    <p class="simple-sheet-hint">Turn live data on or off. Everything here comes from public sources.</p>
+    <div id="simple-layers-list" class="simple-layer-list" role="list"></div>
+  </section>

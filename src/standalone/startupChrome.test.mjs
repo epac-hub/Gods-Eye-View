@@ -10,12 +10,13 @@ const source = readFileSync(
   .replace(/^import .*;\n/gm, '')
   .replace('export function', 'function');
 
-function fixture() {
+function fixture({ simpleActive = false } = {}) {
   const timers = new Map();
   const listeners = new Map();
   const events = [];
   let restored;
   let nextTimer = 0;
+  let simpleBarDestroyed = false;
   const controller = new AbortController();
   const context = {
     console,
@@ -31,6 +32,16 @@ function fixture() {
       events.push('welcome');
       return { destroy: () => events.push('welcome:destroy') };
     },
+    // The simple bar is plain chrome with no reveal choreography; it is kept
+    // out of the event log so the welcome ordering assertions stay exact.
+    initSimpleBar() {
+      return {
+        destroy: () => {
+          simpleBarDestroyed = true;
+        },
+      };
+    },
+    isSimpleUiActive: () => simpleActive,
     async initKeySetup() {
       return { destroy: () => events.push('settings:destroy') };
     },
@@ -58,6 +69,7 @@ function fixture() {
     stop,
     restored,
     controller,
+    simpleBarDestroyed: () => simpleBarDestroyed,
     fire(delay) {
       for (const [id, task] of timers) {
         if (task.delay === delay) {
@@ -122,5 +134,19 @@ test('shutdown during the cover transition cancels the listener and fallback', a
   await f.stop();
   transition();
   f.fire(900);
+  assert.deepEqual(f.events, ['hidden', 'settings:destroy']);
+});
+
+test('the simple view keeps the mission launcher out of the way and owns the bar', async () => {
+  const f = fixture({ simpleActive: true });
+  f.restored();
+  f.fire(1000);
+  await flush();
+  f.listeners.get('transitionend')();
+  f.fire(900);
+  assert.deepEqual(f.events, ['hidden']);
+  assert.equal(f.simpleBarDestroyed(), false);
+  await f.stop();
+  assert.equal(f.simpleBarDestroyed(), true);
   assert.deepEqual(f.events, ['hidden', 'settings:destroy']);
 });
