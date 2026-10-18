@@ -8,6 +8,7 @@ import {
   ENRICH_AMBIENT_REFILL_TOKENS,
   ENRICH_AMBIENT_REFILL_WINDOW_MS,
   ENRICH_AMBIENT_PER_SWEEP,
+  ENRICH_AMBIENT_ROUTES_PER_SWEEP,
 } from './policy.js';
 
 export function createEnrichment({
@@ -108,11 +109,17 @@ export function createEnrichment({
     );
   }
 
-  function _requestRouteEnrichment(icao24) {
+  /** Airline-style callsign (LLL + digit) a route lookup can resolve, or ''. */
+  function _routeCallsign(icao24) {
     const cs = String(flightState.records.data.get(icao24)?.callsign || '')
       .trim()
       .toUpperCase();
-    if (!/^[A-Z]{3}\d/.test(cs)) return; // airline-style callsigns only (LLL + digit); GA tails won't resolve
+    return /^[A-Z]{3}\d/.test(cs) ? cs : ''; // GA tails won't resolve
+  }
+
+  function _requestRouteEnrichment(icao24, priority = true) {
+    const cs = _routeCallsign(icao24);
+    if (!cs) return;
     _enqueueEnrich(
       `r:${cs}`,
       { kind: 'route', id: cs },
@@ -125,8 +132,8 @@ export function createEnrichment({
         if (icao24 === flightState._trackedIcao && flightState._trackedEntity)
           parts.tracking._updateTrackedLabelModel(icao24);
       },
-      true,
-    ); // route lookups only fire for the TRACKED plane — front of the queue
+      priority,
+    ); // the TRACKED plane's lookup takes the front of the queue; the ambient sweep fills the back
   }
 
   /** QA seam: headless harnesses (scripts/qa-enrich-ambient.mjs) shrink the
@@ -195,9 +202,14 @@ export function createEnrichment({
         camera.upWC,
       );
       const cand = [];
+      const routeCand = [];
       for (const [icao24, bb] of flightState._billboards) {
-        if (flightState._enrichSeen.has(`t:${icao24}`)) continue; // answered / queued / negative this session
         if (!/^[0-9a-f]{6}$/i.test(icao24)) continue; // adsbdb keys are 6-char hex only
+        const wantType = !flightState._enrichSeen.has(`t:${icao24}`); // answered / queued / negative this session
+        const routeCs = _routeCallsign(icao24);
+        const wantRoute =
+          routeCs && !flightState._enrichSeen.has(`r:${routeCs}`);
+        if (!wantType && !wantRoute) continue;
         if (flightState.records.data.get(icao24)?.onGround) continue; // ground traffic never spends ambient budget (click-to-enrich still works)
         if (!bb.position || !occluder.isPointVisible(bb.position)) continue; // beyond the limb
         Cesium.Cartesian3.clone(
@@ -209,10 +221,9 @@ export function createEnrichment({
           Cesium.Intersect.OUTSIDE
         )
           continue; // off-screen
-        cand.push([
-          icao24,
-          Cesium.Cartesian3.distanceSquared(camPos, bb.position),
-        ]);
+        const d2 = Cesium.Cartesian3.distanceSquared(camPos, bb.position);
+        if (wantType) cand.push([icao24, d2]);
+        if (wantRoute) routeCand.push([icao24, d2]);
       }
       cand.sort((a, b) => a[1] - b[1]); // nearest first — what the user is looking at resolves first
       const n = Math.min(
@@ -224,6 +235,18 @@ export function createEnrichment({
         flightState._enrichAmbientBudget -= 1;
         _requestTypeEnrichment(cand[i][0]); // non-priority: fills the back of the queue
       }
+      // Routes share the bucket: one token each, nearest first, so the labels
+      // the visitor is actually reading gain their "ORIG → DEST" line first.
+      routeCand.sort((a, b) => a[1] - b[1]);
+      const r = Math.min(
+        routeCand.length,
+        ENRICH_AMBIENT_ROUTES_PER_SWEEP,
+        flightState._enrichAmbientBudget,
+      );
+      for (let i = 0; i < r; i++) {
+        flightState._enrichAmbientBudget -= 1;
+        _requestRouteEnrichment(routeCand[i][0], false);
+      }
     } catch {
       /* ambient enrichment is best-effort — never disturb the poll loop */
     }
@@ -231,6 +254,7 @@ export function createEnrichment({
   return {
     _enqueueEnrich,
     _drainEnrich,
+    _routeCallsign,
     _requestTypeEnrichment,
     _requestRouteEnrichment,
     _ambientBudgetKnobs,

@@ -25,6 +25,8 @@ export function createQueries({
 }) {
   const { tr3bTypeLabel, tr3bAircraftClass } = services.aircraftPresentation;
   const { formatFlightLevel } = services.labels;
+  /** How long a detection card trusts its last route-plausibility verdict. */
+  const ROUTE_RECHECK_MS = 30_000;
   const { isMilitaryIcao } = services.militaryRegistry;
   const { applyTrackedCameraFrame } = services.camera;
   const {
@@ -463,9 +465,34 @@ export function createQueries({
         const id = _contactLabel(icao24, info);
         if (object.id !== id) object.id = id;
         const altitude = info?.altitude;
-        if (object._altitude !== altitude) {
+        // The route line is gated by routePlausible exactly like the tracked
+        // card, so a wrong-leg adsbdb route is hidden rather than displayed.
+        // The gate reads the plane's position, so it is re-asked when the
+        // route reference changes and at most every ROUTE_RECHECK_MS after.
+        const route = info?.route || null;
+        const now = Date.now();
+        if (
+          object._routeRef !== route ||
+          now - (object._routeCheckedAt || 0) > ROUTE_RECHECK_MS
+        ) {
+          object._routeRef = route;
+          object._routeCheckedAt = now;
+          object._routeText =
+            route?.origin?.code &&
+            route?.destination?.code &&
+            parts.tracking._routeIsPlausible(icao24, route)
+              ? `${route.origin.code} → ${route.destination.code}`
+              : '';
+        }
+        if (
+          object._altitude !== altitude ||
+          object._metricRoute !== object._routeText
+        ) {
           object._altitude = altitude;
-          object.metric = formatFlightLevel(altitude); // altitude is metres
+          object._metricRoute = object._routeText;
+          object.metric = [formatFlightLevel(altitude), object._routeText] // altitude is metres
+            .filter(Boolean)
+            .join(' · ');
         }
         result.push(object);
         if (result.length >= maxCount) break;
