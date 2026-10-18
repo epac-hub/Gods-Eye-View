@@ -1,5 +1,19 @@
 import * as Cesium from 'cesium';
 
+/**
+ * Multisampling is a real cost on phone GPUs and the gain is invisible on a
+ * high-density handset screen, so touch-first devices render without it.
+ * @param {{matchMedia?: Function}} [windowRef]
+ * @returns {number}
+ */
+export function msaaSamplesForDevice(windowRef = globalThis.window) {
+  try {
+    return windowRef?.matchMedia?.('(pointer: coarse)')?.matches ? 1 : 4;
+  } catch {
+    return 4;
+  }
+}
+
 /** Create the standard globe viewer in caller-owned, visible containers. */
 export function createApplicationViewer({ container, creditContainer }) {
   if (!container || !creditContainer)
@@ -18,7 +32,7 @@ export function createApplicationViewer({ container, creditContainer }) {
     infoBox: false,
     baseLayer: false,
     creditContainer,
-    msaaSamples: 4,
+    msaaSamples: msaaSamplesForDevice(),
     contextOptions: { webgl: { preserveDrawingBuffer: true } },
   });
   try {
